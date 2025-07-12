@@ -1,0 +1,57 @@
+{
+    "layer": "top",
+	"height": 60,
+    "modules-left": ["sway/workspaces", "sway/mode"],
+    "modules-center": ["sway/window"],
+    "modules-right": ["custom/weather","battery", "clock", "network", "backlight", "pulseaudio"],
+    "font": "FontAwesome 12",
+    "battery": {
+        "format-icons": [" ", " ", " ", " ", " "],
+        "format": "{capacity}% {icon}",
+        "format-charging": "{capacity}%  ",
+        "interval": 30,
+        "states": {
+            "warning": 25,
+            "critical": 10
+        },
+        "tooltip": true 
+    },
+    "clock": {
+        "format-alt": "{:%a, %d. %b  %H:%M}",
+		"tooltip": true,
+		"tooltip-format": "<tt>$(cal)</tt>"
+		
+	},
+    "network": {
+        "format": "{icon}",
+        "format-alt": "{ipaddr}/{cidr} {icon}",
+        "format-alt-click": "click-right",
+        "format-icons": {
+            "wifi": ["", "", ""],
+            "ethernet": [""],
+            "disconnected": ["ﱝ"]
+        },
+        "on-click": "alacritty -e nmtui",
+        "tooltip": false
+    },
+    "custom/weather": {
+            "format": "{text}",
+            "format-alt": "{alt}: {text}",
+            "format-alt-click": "click-right",
+            "interval": 1800,
+            "return-type": "json",
+            "exec": "~/.config/waybar/modules/weather.sh",
+            "exec-if": "ping wttr.in -c1",
+
+
+        },
+     "pulseaudio": {
+            "format": "{volume}%",
+            "format-bluetooth": "{volume}% ",
+            "format-muted": " ",
+            "scroll-step": 1,
+            "on-click-right": "pavucontrol -t 3",
+			"on-click" : "exec pactl set-sink-mute @DEFAULT_SINK@ toggle",
+            "ignored-sinks": ["Easy Effects Sink"]
+      }
+}
