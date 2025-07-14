@@ -1,0 +1,18 @@
+# Comportamiento general
+show=true
+allow_images=true
+term=alacritty
+gtk-dark=true
+
+# Modo (drun, run, ssh, window)
+# Wofi no permite múltiples modos al mismo tiempo. Puedes cambiar entre ellos con flags en el comando.
+mode=drun
+
+# Fuente
+# Esto depende de GTK, se establece mejor en ~/.config/gtk-3.0/settings.ini, pero wofi puede sobreescribirla con style.css
+
+# Temas de íconos
+icon_theme=Qogir
+
+# Ordenar directorios primero (para filebrowser)
+directories_first=true
