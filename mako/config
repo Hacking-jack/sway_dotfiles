@@ -1,0 +1,40 @@
+# Posición y tamaño (banner superior, como la barra)
+anchor=top-right
+layer=overlay
+width=420
+height=120
+margin=10,0,0,0
+padding=12,16
+max-visible=3
+
+# Fuente y forma (del menú)
+font=JetBrainsMono Nerd Font 12
+border-radius=12
+border-size=2
+
+# Colores (de la barra)
+background-color=#1e1e2ef2
+text-color=#cdd6f4
+border-color=#313244
+progress-color=over #89b4fa
+
+# Contenido
+format=<b>%s</b>\n%b
+markup=1
+icons=1
+max-icon-size=40
+icon-location=left
+text-alignment=left
+
+# Comportamiento
+default-timeout=5000
+ignore-timeout=1
+
+[urgency=low]
+border-color=#6c7086
+text-color=#6c7086
+default-timeout=3000
+
+[urgency=high]
+border-color=#f38ba8
+default-timeout=0

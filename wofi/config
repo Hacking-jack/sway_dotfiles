@@ -1,7 +1,8 @@
 # Comportamiento general
-show=true
+show=drun
 allow_images=true
 term=alacritty
+image_size=32
 gtk-dark=true
 
 # Modo (drun, run, ssh, window)

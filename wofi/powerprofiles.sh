@@ -1,55 +1,39 @@
 #!/usr/bin/env bash
 #
-# Use rofi/zenity to change system runstate thanks to systemd.
+# Use wofi/zenity to change power profile via power-profiles-daemon.
 #
-# Note: this currently relies on associative array support in the shell.
-#
+# Adapted for Sway (swaymsg) from the original i3/rofi version.
 # Inspired from i3pystatus wiki:
 # https://github.com/enkore/i3pystatus/wiki/Shutdown-Menu
-#
-# Copyright 2015 Benjamin Chrétien <chretien at lirmm dot fr>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 # power-profiles-daemon implementation:
-# needs package power-profiles-daemon installed and the service running see here:
+# needs package power-profiles-daemon installed and the service running, see:
 # https://wiki.archlinux.org/title/CPU_frequency_scaling#power-profiles-daemon
-# used in i3-blocks: ~/.config/i3/i3blocks.conf together with: ~/.config/i3/scripts/ppd-status
+# used in waybar custom module / i3blocks together with: ppd-status
 
 
 #######################################################################
 #                            BEGIN CONFIG                             #
 #######################################################################
 
-# Use a custom lock script
-#LOCKSCRIPT="i3lock-extra -m pixelize"
+# wofi options. Styling (colors, borders, etc.) goes in
+# ~/.config/wofi/style.css and ~/.config/wofi/config, not here.
+WOFI_PROMPT="Power Profile"
+WOFI_OPTIONS=(--insensitive --cache-file /dev/null)
 
-# Colors: FG (foreground), BG (background), HL (highlighted)
-FG_COLOR="#bbbbbb"
-BG_COLOR="#111111"
-HLFG_COLOR="#111111"
-HLBG_COLOR="#bbbbbb"
-BORDER_COLOR="#222222"
-
-# Options not related to colors
-#ROFI_TEXT=":"
-#ROFI_OPTIONS=(-width -11 -location 0 -hide-scrollbar -bw 30 -color-window "#dd310027,#dd0310027,#dd310027" -padding 5)
-#ROFI_OPTIONS=(-width -18 -location 4 -hide-scrollbar -color-window "#cc310027,#00a0009a,#cc310027" -padding 5 -font "Sourcecode Pro Regular 10, FontAwesome 9")
-ROFI_OPTIONS=(-theme ~/.config/rofi/power-profiles.rasi)
-# Zenity options
+# Zenity options (fallback)
 ZENITY_TITLE="Power Profiles"
-ZENITY_TEXT="Set Profiles:"
+ZENITY_TEXT="Set Profile:"
 ZENITY_OPTIONS=(--column= --hide-header)
 
 #######################################################################
@@ -60,22 +44,23 @@ ZENITY_OPTIONS=(--column= --hide-header)
 enable_confirmation=false
 
 # Preferred launcher if both are available
-preferred_launcher="rofi"
+preferred_launcher="wofi"
 
-usage="$(basename "$0") [-h] [-c] [-p name] -- display a menu for shutdown, reboot, lock etc.
+usage="$(basename "$0") [-h] [-c] [-p name] -- display a menu to change power profile.
 
 where:
     -h  show this help text
     -c  ask for user confirmation
-    -p  preferred launcher (rofi or zenity)
+    -p  preferred launcher (wofi or zenity)
 
 This script depends on:
   - systemd,
-  - i3,
-  - rofi or zenity."
+  - power-profiles-daemon,
+  - sway (swaymsg),
+  - wofi or zenity."
 
 # Check whether the user-defined launcher is valid
-launcher_list=(rofi zenity)
+launcher_list=(wofi zenity)
 function check_launcher() {
   if [[ ! "${launcher_list[@]}" =~ (^|[[:space:]])"$1"($|[[:space:]]) ]]; then
     echo "Supported launchers: ${launcher_list[*]}"
@@ -110,8 +95,8 @@ function command_exists() {
   command -v "$1" &> /dev/null 2>&1
 }
 
-# systemctl required
-if ! command_exists systemctl ; then
+# systemctl and powerprofilesctl required
+if ! command_exists systemctl || ! command_exists powerprofilesctl ; then
   exit 1
 fi
 
@@ -119,12 +104,11 @@ fi
 typeset -A default_menu_options
 
 # The default options with keys/commands
-
 default_menu_options=(
-  [ Performance]="powerprofilesctl set performance"
-  [ Balanced]="powerprofilesctl set balanced"
-  [ Power Saver]="powerprofilesctl set power-saver"
-  [ Cancel]=""
+  [" Performance"]="powerprofilesctl set performance"
+  [" Balanced"]="powerprofilesctl set balanced"
+  [" Power Saver"]="powerprofilesctl set power-saver"
+  [" Cancel"]=""
 )
 
 # The menu that will be displayed
@@ -134,7 +118,7 @@ menu=()
 # Only add power profiles that are available to menu
 for key in "${!default_menu_options[@]}"; do
   grep_arg=${default_menu_options[${key}]##* }
-  if powerprofilesctl list | grep -q "$grep_arg"; then
+  if [[ "${grep_arg}" == "" ]] || powerprofilesctl list | grep -q "$grep_arg"; then
     menu[${key}]=${default_menu_options[${key}]}
   fi
 done
@@ -144,19 +128,15 @@ unset default_menu_options
 menu_nrows=${#menu[@]}
 
 # Menu entries that may trigger a confirmation message
-menu_confirm="Shutdown Reboot Hibernate Suspend Halt Logout"
+menu_confirm=""
 
 launcher_exe=""
-launcher_options=""
-rofi_colors=""
+launcher_options=()
 
 function prepare_launcher() {
-  if [[ "$1" == "rofi" ]]; then
-    rofi_colors=(-bc "${BORDER_COLOR}" -bg "${BG_COLOR}" -fg "${FG_COLOR}" \
-        -hlfg "${HLFG_COLOR}" -hlbg "${HLBG_COLOR}")
-    launcher_exe="rofi"
-    launcher_options=(-dmenu -i -lines "${menu_nrows}" -p "${ROFI_TEXT}" \
-        "${rofi_colors}" "${ROFI_OPTIONS[@]}")
+  if [[ "$1" == "wofi" ]]; then
+    launcher_exe="wofi"
+    launcher_options=(--dmenu --prompt "${WOFI_PROMPT}" --lines "${menu_nrows}" "${WOFI_OPTIONS[@]}")
   elif [[ "$1" == "zenity" ]]; then
     launcher_exe="zenity"
     launcher_options=(--list --title="${ZENITY_TITLE}" --text="${ZENITY_TEXT}" \
@@ -176,29 +156,35 @@ if [[ -z "${launcher_exe}" ]]; then
   exit 1
 fi
 
-launcher=(${launcher_exe} "${launcher_options[@]}")
+launcher=("${launcher_exe}" "${launcher_options[@]}")
 selection="$(printf '%s\n' "${!menu[@]}" | sort | "${launcher[@]}")"
 
+# Trim trailing whitespace/newline that wofi sometimes adds
+selection="${selection%$'\n'}"
+selection="$(echo -n "${selection}" | sed 's/[[:space:]]*$//')"
+
 function ask_confirmation() {
-  if [ "${launcher_exe}" == "rofi" ]; then
-    confirmed=$(echo -e "Yes\nNo" | rofi -dmenu -i -lines 2 -p "${selection}?" \
-      "${rofi_colors}" "${ROFI_OPTIONS[@]}")
-    [ "${confirmed}" == "Yes" ] && confirmed=0
+  if [ "${launcher_exe}" == "wofi" ]; then
+    confirmed="$(printf 'Yes\nNo\n' | wofi --dmenu --prompt "${selection}?" --lines 2 "${WOFI_OPTIONS[@]}")"
+    confirmed="$(echo -n "${confirmed}" | sed 's/[[:space:]]*$//')"
+    [ "${confirmed}" == "Yes" ] && confirmed=0 || confirmed=1
   elif [ "${launcher_exe}" == "zenity" ]; then
     zenity --question --text "Are you sure you want to ${selection,,}?"
     confirmed=$?
   fi
 
   if [ "${confirmed}" == 0 ]; then
-    i3-msg -q "exec --no-startup-id ${menu[${selection}]}"
+    swaymsg -q exec "${menu[${selection}]}"
   fi
 }
 
-if [[ $? -eq 0 && ! -z ${selection} ]]; then
-  if [[ "${enable_confirmation}" = true && \
-        ${menu_confirm} =~ (^|[[:space:]])"${selection}"($|[[:space:]]) ]]; then
-    ask_confirmation
-  else
-    i3-msg -q "exec --no-startup-id ${menu[${selection}]}"
+if [[ -n "${selection}" && -n "${menu[${selection}]+x}" ]]; then
+  if [[ -n "${menu[${selection}]}" ]]; then
+    if [[ "${enable_confirmation}" = true && \
+          ${menu_confirm} =~ (^|[[:space:]])"${selection}"($|[[:space:]]) ]]; then
+      ask_confirmation
+    else
+      swaymsg -q exec "${menu[${selection}]}"
+    fi
   fi
 fi
